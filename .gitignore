@@ -1,0 +1,4 @@
+benchmark/clickhouse
+benchmark/ch-data/
+benchmark/server.log
+__pycache__/
