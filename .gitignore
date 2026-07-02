@@ -1,4 +1,5 @@
 benchmark/clickhouse
+benchmark/clickhouse-lts
 benchmark/ch-data/
 benchmark/server.log
 __pycache__/
