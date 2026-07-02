@@ -11,6 +11,7 @@ CH_TAG="v${CH_VERSION}-lts"
 CH_RELEASE_URL="https://github.com/ClickHouse/ClickHouse/releases/download/${CH_TAG}"
 CH_BIN="$PWD/clickhouse"
 CH_CACHE_META="$PWD/.clickhouse-cache"
+LOG_FILE="$PWD/server.log"
 CH_DATA_DIR=""
 PLATFORM=""
 ASSET_NAME=""
@@ -145,14 +146,14 @@ fi
 
 echo "Starting local ClickHouse server..."
 CH_DATA_DIR=$(mktemp -d "${TMPDIR:-/tmp}/engineer-004-clickhouse.XXXXXX")
-(cd "$CH_DATA_DIR" && exec "$CH" server >"$PWD/server.log" 2>&1) &
+(cd "$CH_DATA_DIR" && exec "$CH" server >"$LOG_FILE" 2>&1) &
 CH_PID=$!
 for _ in $(seq 1 60); do
   curl -fsS http://localhost:8123/ping >/dev/null 2>&1 && break
   sleep 0.5
 done
 curl -fsS http://localhost:8123/ping >/dev/null 2>&1 || {
-  echo "ClickHouse failed to start; see server.log" >&2; exit 1;
+  echo "ClickHouse failed to start; see $LOG_FILE" >&2; exit 1;
 }
 
 "$CH" client --multiquery <schema.sql
