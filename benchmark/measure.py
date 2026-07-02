@@ -60,9 +60,12 @@ def main():
     )
     seg_matches, seg_t = timed_query(seg_sql)
 
+    version = ch_query("SELECT version()")
+
     print("## Benchmark results (observed)\n")
     print("| Metric | Value |")
     print("|---|---|")
+    print(f"| ClickHouse version | {version} |")
     print(f"| Events ingested | {total:,} |")
     print(f"| Sustained ingest rate | {achieved:,.0f} events/sec |")
     print(f"| Ingest lag (event created -> queryable), p50 | {p50:,.0f} ms |")

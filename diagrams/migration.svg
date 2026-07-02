@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="620" viewBox="0 0 1400 620" role="img" aria-labelledby="title desc">
+  <title id="title">Migration and rollback plan</title>
+  <desc id="desc">A phased migration starts with legacy production, mirrors through the new collector, gates weighted traffic shifts on reconciliation, and rolls back to legacy on failure.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#334155"/>
+    </marker>
+    <marker id="arrow-red" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#b91c1c"/>
+    </marker>
+    <style>
+      .bg { fill: #f8fafc; }
+      .box { fill: #ffffff; stroke: #334155; stroke-width: 2; rx: 8; }
+      .gate { fill: #ecfeff; stroke: #0e7490; stroke-width: 2; rx: 8; }
+      .danger { fill: #fef2f2; stroke: #b91c1c; stroke-width: 2; rx: 8; }
+      .done { fill: #f0fdf4; stroke: #15803d; stroke-width: 2; rx: 8; }
+      .label { fill: #0f172a; font: 600 20px Arial, sans-serif; }
+      .small { fill: #334155; font: 16px Arial, sans-serif; }
+      .tiny { fill: #475569; font: 14px Arial, sans-serif; }
+      .arrow { stroke: #334155; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+      .arrowRed { stroke: #b91c1c; stroke-width: 3; fill: none; marker-end: url(#arrow-red); }
+    </style>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1400" height="620"/>
+  <text class="label" x="54" y="56">Migration + Rollback Plan</text>
+  <text class="small" x="54" y="86">The SDK stays unchanged; rollback is traffic weighting back to legacy while forwarding remains enabled.</text>
+
+  <rect class="box" x="55" y="180" width="165" height="120"/>
+  <text class="label" x="86" y="220">Phase 0</text>
+  <text class="small" x="84" y="250">legacy owns</text>
+  <text class="small" x="84" y="276">production</text>
+
+  <rect class="box" x="285" y="160" width="220" height="160"/>
+  <text class="label" x="330" y="200">Phase 1</text>
+  <text class="small" x="318" y="230">new collector</text>
+  <text class="small" x="318" y="256">mirrors legacy</text>
+  <text class="small" x="318" y="282">and writes Kinesis</text>
+
+  <rect class="gate" x="570" y="160" width="220" height="160"/>
+  <text class="label" x="615" y="200">Gate</text>
+  <text class="small" x="604" y="230">reconcile counts</text>
+  <text class="small" x="604" y="256">canary presence</text>
+  <text class="small" x="604" y="282">iterator lag</text>
+
+  <rect class="box" x="855" y="150" width="220" height="180"/>
+  <text class="label" x="900" y="190">Phase 2</text>
+  <text class="small" x="890" y="220">weighted shift</text>
+  <text class="small" x="890" y="246">1% -> 10%</text>
+  <text class="small" x="890" y="272">50% -> 100%</text>
+  <text class="small" x="890" y="298">gate each step</text>
+
+  <rect class="done" x="1140" y="120" width="205" height="120"/>
+  <text class="label" x="1182" y="160">Phase 3</text>
+  <text class="small" x="1172" y="190">ClickHouse</text>
+  <text class="small" x="1172" y="216">dashboards MVP</text>
+
+  <rect class="done" x="1140" y="315" width="205" height="120"/>
+  <text class="label" x="1182" y="355">Phase 4</text>
+  <text class="small" x="1172" y="385">backfill history</text>
+  <text class="small" x="1172" y="411">then retire legacy</text>
+
+  <rect class="danger" x="570" y="430" width="220" height="120"/>
+  <text class="label" x="622" y="470">Rollback</text>
+  <text class="small" x="606" y="500">send all traffic</text>
+  <text class="small" x="606" y="526">back to legacy</text>
+
+  <path class="arrow" d="M220 240 H285"/>
+  <path class="arrow" d="M505 240 H570"/>
+  <path class="arrow" d="M790 240 H855"/>
+  <path class="arrow" d="M1075 220 C1100 205 1115 190 1140 180"/>
+  <path class="arrow" d="M1242 240 V315"/>
+  <path class="arrowRed" d="M680 320 V430"/>
+  <path class="arrowRed" d="M965 330 C965 490 850 490 790 490"/>
+  <path class="arrowRed" d="M570 490 C360 490 138 420 138 300"/>
+
+  <text class="tiny" x="247" y="224">mirror</text>
+  <text class="tiny" x="527" y="224">compare</text>
+  <text class="tiny" x="810" y="224">pass</text>
+  <text class="tiny" x="700" y="380">fail</text>
+  <text class="tiny" x="1000" y="466">fail at any shift</text>
+</svg>

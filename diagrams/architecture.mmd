@@ -1,0 +1,15 @@
+flowchart LR
+  SDK["JS SDK\nunchanged endpoint + wire format"] --> COL["Collection API\nALB + ECS Fargate\nACK after durable write"]
+  COL --> KDS[("Kinesis Data Streams\n7-day retention")]
+  COL -. "mirror during migration" .-> LEGACY["Legacy pipeline\nunchanged"]
+
+  KDS --> CONS["Ingest consumers\nECS + KCL checkpoints\nbatch >=6K rows or 1s"]
+  KDS --> FH["Firehose"]
+  FH --> S3[("S3 raw archive\nParquet by tenant/date")]
+
+  CONS --> CH[("ClickHouse\nreal-time OLAP")]
+  CONS --> REDIS[("Redis\npersonalization triggers")]
+
+  CH --> DASH["Dashboards + segmentation API"]
+  S3 --> EXPORT["Warehouse exports\nSnowflake / BigQuery"]
+  PG[("Postgres\nidentity map + tenant config")] -. "dictionary refresh" .-> CH

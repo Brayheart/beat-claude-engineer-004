@@ -1,7 +1,11 @@
 # Engineer-004: Real-Time Analytics Pipeline — Submission Artifact
 
 Operating artifact for the [beat-claude engineer-004 challenge](https://github.com/ericosiu/beat-claude/tree/main/challenges/engineer-004).
-The written answer is in [SUBMISSION.md](SUBMISSION.md).
+The written answer is in [SUBMISSION.md](SUBMISSION.md). Standalone diagrams are
+included in `diagrams/` as SVG files with Mermaid source:
+
+- `diagrams/architecture.svg` / `diagrams/architecture.mmd`
+- `diagrams/migration.svg` / `diagrams/migration.mmd`
 
 ## What this artifact proves
 
@@ -31,9 +35,12 @@ Requires: macOS or Linux, Python 3.9+ (stdlib only, no pip installs), ~1GB disk.
 
 ```bash
 cd benchmark
-./run.sh                      # downloads ClickHouse binary on first run
+./run.sh                      # first run downloads ClickHouse v25.8-lts (pinned version, checksum-verified)
 ./run.sh --rate 11600         # optional: push to 20x average
 ```
+
+The runner starts a throwaway local server, applies the schema, drives the load,
+prints results, and shuts the server down again on exit.
 
 Results land in `benchmark/results/results.md`.
 

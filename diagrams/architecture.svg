@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="760" viewBox="0 0 1400 760" role="img" aria-labelledby="title desc">
+  <title id="title">Real-time analytics pipeline architecture</title>
+  <desc id="desc">Data flows from the unchanged JavaScript SDK to a collection API, Kinesis, ClickHouse, Redis, S3, dashboards, and warehouse exports, with legacy mirroring during migration.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#334155"/>
+    </marker>
+    <marker id="arrow-blue" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#2563eb"/>
+    </marker>
+    <style>
+      .bg { fill: #f8fafc; }
+      .box { fill: #ffffff; stroke: #334155; stroke-width: 2; rx: 8; }
+      .store { fill: #eff6ff; stroke: #2563eb; stroke-width: 2; rx: 8; }
+      .legacy { fill: #fff7ed; stroke: #c2410c; stroke-width: 2; rx: 8; }
+      .label { fill: #0f172a; font: 600 20px Arial, sans-serif; }
+      .small { fill: #334155; font: 16px Arial, sans-serif; }
+      .tiny { fill: #475569; font: 14px Arial, sans-serif; }
+      .arrow { stroke: #334155; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+      .arrowBlue { stroke: #2563eb; stroke-width: 3; fill: none; marker-end: url(#arrow-blue); }
+      .dash { stroke: #c2410c; stroke-width: 3; fill: none; stroke-dasharray: 9 8; marker-end: url(#arrow); }
+    </style>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1400" height="760"/>
+  <text class="label" x="54" y="56">Real-Time Analytics Pipeline</text>
+  <text class="small" x="54" y="86">Primary path: durable ingest buffer -> batched ClickHouse writes -> real-time dashboards and triggers</text>
+
+  <rect class="box" x="55" y="170" width="175" height="110"/>
+  <text class="label" x="82" y="210">JS SDK</text>
+  <text class="small" x="82" y="238">unchanged endpoint</text>
+  <text class="small" x="82" y="262">same wire format</text>
+
+  <rect class="box" x="300" y="150" width="215" height="150"/>
+  <text class="label" x="328" y="190">Collection API</text>
+  <text class="small" x="328" y="220">ALB + ECS Fargate</text>
+  <text class="small" x="328" y="246">stateless collectors</text>
+  <text class="small" x="328" y="272">ACK after durable write</text>
+
+  <rect class="store" x="585" y="150" width="235" height="150"/>
+  <text class="label" x="620" y="190">Kinesis</text>
+  <text class="small" x="620" y="220">Data Streams</text>
+  <text class="small" x="620" y="246">durable buffer</text>
+  <text class="small" x="620" y="272">7-day retention</text>
+
+  <rect class="box" x="900" y="130" width="250" height="170"/>
+  <text class="label" x="928" y="170">Ingest Consumers</text>
+  <text class="small" x="928" y="200">ECS + KCL checkpoints</text>
+  <text class="small" x="928" y="226">flush >=6K rows or 1s</text>
+  <text class="small" x="928" y="252">checkpoint after insert</text>
+
+  <rect class="store" x="1215" y="130" width="140" height="170"/>
+  <text class="label" x="1238" y="180">ClickHouse</text>
+  <text class="small" x="1238" y="210">real-time</text>
+  <text class="small" x="1238" y="236">OLAP store</text>
+
+  <rect class="legacy" x="300" y="410" width="215" height="110"/>
+  <text class="label" x="340" y="452">Legacy</text>
+  <text class="small" x="340" y="480">pipeline unchanged</text>
+
+  <rect class="box" x="585" y="410" width="140" height="110"/>
+  <text class="label" x="615" y="452">Firehose</text>
+  <text class="small" x="615" y="480">raw sink</text>
+
+  <rect class="store" x="790" y="400" width="185" height="130"/>
+  <text class="label" x="830" y="442">S3 Archive</text>
+  <text class="small" x="830" y="470">Parquet</text>
+  <text class="small" x="830" y="496">tenant/date partitions</text>
+
+  <rect class="box" x="1035" y="410" width="190" height="110"/>
+  <text class="label" x="1072" y="452">Warehouse</text>
+  <text class="small" x="1072" y="480">Snowflake / BigQuery</text>
+
+  <rect class="store" x="1020" y="590" width="170" height="105"/>
+  <text class="label" x="1073" y="630">Redis</text>
+  <text class="small" x="1050" y="658">trigger matches</text>
+
+  <rect class="box" x="1215" y="590" width="140" height="105"/>
+  <text class="label" x="1240" y="630">Dashboards</text>
+  <text class="small" x="1238" y="658">query API</text>
+
+  <rect class="store" x="900" y="25" width="250" height="80"/>
+  <text class="label" x="966" y="58">Postgres</text>
+  <text class="small" x="936" y="84">identity map + tenant config</text>
+
+  <path class="arrow" d="M230 225 H300"/>
+  <path class="arrowBlue" d="M515 225 H585"/>
+  <path class="arrowBlue" d="M820 225 H900"/>
+  <path class="arrowBlue" d="M1150 215 H1215"/>
+  <path class="dash" d="M407 300 V410"/>
+  <path class="arrow" d="M702 300 V355 C702 382 655 382 655 410"/>
+  <path class="arrow" d="M725 465 H790"/>
+  <path class="arrow" d="M975 465 H1035"/>
+  <path class="arrow" d="M1025 300 V590"/>
+  <path class="arrow" d="M1285 300 V590"/>
+  <path class="arrow" d="M1150 65 C1200 65 1245 90 1265 130"/>
+
+  <text class="tiny" x="535" y="210">PutRecords</text>
+  <text class="tiny" x="838" y="210">consume + batch</text>
+  <text class="tiny" x="360" y="360">mirror during migration</text>
+  <text class="tiny" x="716" y="355">raw archive</text>
+  <text class="tiny" x="1055" y="570">matched trigger events</text>
+  <text class="tiny" x="1195" y="112">dictionary refresh</text>
+</svg>
