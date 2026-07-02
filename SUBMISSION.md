@@ -1,7 +1,7 @@
 # Real-Time Analytics Pipeline — Engineer-004 Submission
 
 **Candidate:** Tyler Bray · tylerhbray@gmail.com
-**Artifact:** this repo — runnable load benchmark under `benchmark/` plus standalone SVG/Mermaid diagrams under `diagrams/` (see README for one-command benchmark run)
+**Artifact:** this repo — runnable load benchmark under `benchmark/`, standalone SVG/Mermaid diagrams under `diagrams/`, and source/decision records under `evidence/` (see README)
 
 ## Assumptions (stated up front)
 
@@ -92,6 +92,7 @@ Scope honesty: a laptop single node validates the *engine and insert pattern*, n
 | Cost fits budget with 5–10x headroom | Itemized estimate from AWS public pricing | Estimated (Tier 0 until quoted) |
 | Migration is lossless and reversible | Design argument (mirror-then-shift); not yet executed | 0 — validated by the reconciliation gates it defines |
 | ~10x compression / 90-day hot retention ≈ 450 GB | ClickHouse published benchmarks | Benchmarked |
+| External claims are traceable | `evidence/source-records.md` maps claims to public source records | 3 (source records) |
 
 ## 6. AI Usage Disclosure
 

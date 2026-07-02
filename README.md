@@ -7,6 +7,11 @@ included in `diagrams/` as SVG files with Mermaid source:
 - `diagrams/architecture.svg` / `diagrams/architecture.mmd`
 - `diagrams/migration.svg` / `diagrams/migration.mmd`
 
+Supporting evidence artifacts are in `evidence/`:
+
+- `evidence/source-records.md` maps external claims to primary sources.
+- `evidence/decision-log.md` records the stack trade-off decisions.
+
 ## What this artifact proves
 
 The proposed architecture (Kinesis → batching consumers → ClickHouse) rests on one
@@ -44,7 +49,8 @@ server in a temporary data directory, applies the schema, drives the load, print
 results, and shuts the server down again on exit. If port 8123 is already
 occupied, it exits instead of silently running against the wrong server.
 
-Results land in `benchmark/results/results.md`.
+Results land in `benchmark/results/results.md`; the committed observed run also has
+a raw transcript at `benchmark/results/run-transcript.txt`.
 
 ## Honest scope limits
 
