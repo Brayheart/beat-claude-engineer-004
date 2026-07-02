@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # One-shot benchmark runner. Downloads and uses a local ClickHouse
 # v25.8.25.37-lts binary only; cached binaries are version/hash checked before
-# reuse. Starts a local server, applies the schema, runs the load benchmark at
-# 10x average traffic, prints results, and shuts the server down again.
+# reuse. Starts a local throwaway server, applies the schema, runs the load
+# benchmark at 10x average traffic, prints results, and shuts the server down.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -11,6 +11,7 @@ CH_TAG="v${CH_VERSION}-lts"
 CH_RELEASE_URL="https://github.com/ClickHouse/ClickHouse/releases/download/${CH_TAG}"
 CH_BIN="$PWD/clickhouse"
 CH_CACHE_META="$PWD/.clickhouse-cache"
+CH_DATA_DIR=""
 PLATFORM=""
 ASSET_NAME=""
 ASSET_SHA256=""
@@ -129,6 +130,10 @@ cleanup() {
   if [ -n "$CH_PID" ]; then
     echo "Stopping ClickHouse server (pid $CH_PID)..."
     kill "$CH_PID" 2>/dev/null || true
+    wait "$CH_PID" 2>/dev/null || true
+  fi
+  if [ -n "$CH_DATA_DIR" ]; then
+    rm -rf "$CH_DATA_DIR"
   fi
 }
 trap cleanup EXIT
@@ -139,8 +144,8 @@ if curl -fsS http://localhost:8123/ping >/dev/null 2>&1; then
 fi
 
 echo "Starting local ClickHouse server..."
-mkdir -p ch-data
-(cd ch-data && exec "$CH" server >../server.log 2>&1) &
+CH_DATA_DIR=$(mktemp -d "${TMPDIR:-/tmp}/engineer-004-clickhouse.XXXXXX")
+(cd "$CH_DATA_DIR" && exec "$CH" server >"$PWD/server.log" 2>&1) &
 CH_PID=$!
 for _ in $(seq 1 60); do
   curl -fsS http://localhost:8123/ping >/dev/null 2>&1 && break

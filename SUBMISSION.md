@@ -28,18 +28,18 @@ flowchart LR
   PG[("Postgres (existing)<br/>identity map, tenant config")] -.->|identity refresh| CH
 ```
 
-**Data flow:** SDK → Collection API (same endpoint and wire format — the SDK-compatibility constraint is satisfied at the edge, not in the client) → Kinesis (durable buffer; the collector only ACKs the SDK after a successful durable write) → two parallel consumers: (a) batching ingest into ClickHouse for dashboards/segmentation, (b) Firehose → S3 as the immutable raw archive that feeds warehouse exports, backfills, and replay.
+**Data flow:** SDK → Collection API (same endpoint and wire format — the SDK-compatibility constraint is satisfied at the edge, not in the client) → durable buffer (Kinesis primary; SQS overflow during Kinesis throttles; collector ACKs only after one durable write succeeds) → two parallel consumers: (a) batching ingest into ClickHouse for dashboards/segmentation, (b) Firehose → S3 as the immutable raw archive that feeds warehouse exports, backfills, and replay.
 
 **Technology choices and the alternatives they beat:**
 
 - **Kinesis Data Streams over MSK/Kafka.** Same durable-buffer role, but no brokers to run. The brief gives [Observed — brief] 2 dedicated seniors; Kafka's power (stream joins, exactly-once transactions) isn't needed for aggregation + trigger workloads, and its ops cost is real. Capacity honesty: [Benchmarked — AWS docs] on-demand streams *start* at 4 MB/s / 4,000 records/sec write capacity and scale toward the regional cap, but AWS only commits to smoothly absorbing up to ~2x the prior peak within a 15-minute window — a true 10x step-change can throttle mid-ramp. Our absolute load is small ([Estimated] 10x spike ≈ 5,800 records/sec ≈ 6 MB/s), so the plan treats spikes as a warm-up problem, not a capacity problem: switch to provisioned capacity ahead of announced events, and lean on collector-side retry + SQS overflow for unannounced step-changes (§7).
-- **ClickHouse over Redshift / Druid / Timestream / staying on Postgres.** Postgres is the current bottleneck (row store, no columnar scans). Redshift is warehouse-latency, not sub-second dashboard latency at high ingest. Druid fits but is the heaviest ops burden of the set. ClickHouse gives sub-second aggregations over billions of rows on a handful of nodes and is the *single* new system the team must learn — deliberately the only one. Self-managed on EC2 first; ClickHouse Cloud (runs on AWS) is the pressure-relief valve if ops load exceeds the team — budget headroom covers it (see cost table).
+- **ClickHouse over Redshift / Druid / Timestream / staying on Postgres.** Postgres is the current bottleneck (row store, no columnar scans). Redshift is warehouse-latency, not sub-second dashboard latency at high ingest. Druid fits but is the heaviest ops burden of the set. ClickHouse gives sub-second aggregations over billions of rows on a handful of nodes and is the *single* new system the team must learn — deliberately the only one. I would start with ClickHouse Cloud on AWS if procurement allows; self-managed EC2 is the fallback if data-residency or vendor constraints force it. The budget leaves room either way (see cost table).
 - **At-least-once delivery + idempotent inserts over exactly-once machinery.** Every event carries a client-generated `event_id`, deduplicated in two layers: ClickHouse insert-deduplication tokens catch retried batches at write time, and ReplacingMergeTree collapses stragglers at background merges. That collapse is **eventual** — plain SELECTs can return duplicates until parts merge — so queries where exactness matters (reconciliation, billing-adjacent counts) read with `FINAL`/`GROUP BY event_id` and pay the query cost, while live dashboards tolerate transient overcounts. Net: today's ~3% silent loss ([Observed] per brief) becomes rare, bounded, self-healing duplication — the correct direction for analytics.
 - **Redis (already in stack) for behavioral triggers.** Ingest consumers evaluate tenant trigger rules inline (for example, repeat pricing-page intent) and publish matches to Redis for the personalization runtime — trigger latency is buffer lag + evaluation, comfortably inside 5s [Assumed SLA interpretation], without a stream-processing framework.
 
 **Event schema & identity stitching.** Events: `(tenant_id, event_id, anonymous_id, user_id?, event_type, url, ts, props JSON)`. ClickHouse table ordered by `(tenant_id, event_type, ts)` — every dashboard query is tenant-scoped, so tenant-first ordering makes [Observed — brief] 500+ customer multi-tenancy a pruning win, plus per-tenant row policies for isolation. Unknown custom-event fields land in a `props` JSON string column — schema drift can't reject events. Identity: SDK's `anonymous_id` cookie is the spine; `identify` calls write `anonymous_id → user_id` mappings to Postgres, exposed to ClickHouse as an in-memory dictionary refreshed ~every 30s [Assumed refresh interval]. Stitching resolves at query time (replay-safe, no reprocessing when mappings arrive late); a nightly job materializes canonical IDs into cold partitions.
 
-**Cost (all [Estimated] from AWS public on-demand pricing, us-east-1):** Kinesis ≈ $400/mo (1.5 TB/mo ingested), ClickHouse 3× m6i.2xlarge + 2 TB gp3 + replicas ≈ $3,000/mo, Fargate (collectors + consumers) ≈ $700/mo, Firehose + S3 + egress ≈ $400/mo. **Total ≈ $4.5–8K/mo — 6–10x headroom under the $50K ceiling**, which is deliberate: headroom is the migration-safety and Black-Friday budget, not savings to spend. Storage: [Benchmarked] ClickHouse typically compresses this event shape ~10x (ClickHouse documented benchmarks), so 90-day hot retention ≈ 450 GB compressed.
+**Cost (all [Estimated] from AWS public on-demand pricing, us-east-1):** Kinesis ≈ $400/mo (1.5 TB/mo ingested), ClickHouse Cloud or 3× m6i.2xlarge + 2 TB gp3 + replicas ≈ $3,000–6,000/mo, Fargate (collectors + consumers) ≈ $700/mo, Firehose + S3 + egress ≈ $400/mo. **Total ≈ $5–9K/mo — 5–10x headroom under the $50K ceiling**, which is deliberate: headroom is the migration-safety and Black-Friday budget, not savings to spend. Storage: [Benchmarked] ClickHouse typically compresses this event shape ~10x (ClickHouse documented benchmarks), so 90-day hot retention ≈ 450 GB compressed.
 
 ## 2. Scale, Reliability & Migration
 
@@ -73,11 +73,11 @@ The design's one claim not answerable from vendor docs: **does ClickHouse make e
 |---|---|
 | Events ingested | 348,000 (60s run) |
 | Sustained ingest rate | 5,804 events/sec — 10.0x the brief's average traffic |
-| Ingest lag (event created → queryable), p50 | 546 ms |
-| Ingest lag p95 | 1,013 ms |
-| Ingest lag p99 | 1,053 ms |
-| Dashboard query (per-tenant 15-min live breakdown), median | 5 ms |
-| Segmentation query ("viewed /pricing 3+ times"), median | 6 ms |
+| Ingest lag (event created → queryable), p50 | 553 ms |
+| Ingest lag p95 | 1,033 ms |
+| Ingest lag p99 | 1,058 ms |
+| Dashboard query (per-tenant 15-min live breakdown), median | 4 ms |
+| Segmentation query ("viewed /pricing 3+ times"), median | 5 ms |
 
 The p95 lag is dominated by the deliberate 1-second buffering stage — the SLA spend is the flush policy working as designed, leaving ~4s of the 5s budget for network, collection, and Kinesis hops in production.
 
@@ -89,13 +89,13 @@ Scope honesty: a laptop single node validates the *engine and insert pattern*, n
 |---|---|---|
 | ClickHouse sustains 10x-peak ingest with sub-second queryable lag (laptop floor) | Runnable benchmark in this repo + committed results | 2–3 (demo artifact + logs; rerunnable) |
 | Kinesis absorbs a 10x spike *after ramp-up*; unannounced step-changes risk transient throttling | AWS on-demand capacity + ramp rules (docs) vs. computed load; mitigations in §7 | Benchmarked (doc-sourced) |
-| Cost fits budget with 6–10x headroom | Itemized estimate from AWS public pricing | Estimated (Tier 0 until quoted) |
+| Cost fits budget with 5–10x headroom | Itemized estimate from AWS public pricing | Estimated (Tier 0 until quoted) |
 | Migration is lossless and reversible | Design argument (mirror-then-shift); not yet executed | 0 — validated by the reconciliation gates it defines |
 | ~10x compression / 90-day hot retention ≈ 450 GB | ClickHouse published benchmarks | Benchmarked |
 
 ## 6. AI Usage Disclosure
 
-**Tools:** Claude Code and OpenAI Codex. **AI helped with:** analyzing the brief, laying out candidate architectures with trade-offs, drafting the benchmark code, and editing this document. **I decided:** which candidate stack to commit to (Kinesis + ClickHouse over MSK/Flink and over Firehose/Snowflake), and the artifact scope — benchmark the one claim vendor docs can't answer, cite AWS docs for the rest instead of fake-simulating a queue locally, and report laptop numbers as a floor rather than a capacity plan. **Checked/changed:** the benchmark ran on my machine through the pinned runner with results committed as-is; an adversarial review pass over the draft specifically hunted for AI overclaims and caught one — an earlier version overstated Kinesis on-demand capacity by ignoring the 4 MB/s starting throughput and the ~2x-per-15-minute ramp rule; the corrected claim is in §1 and §7. **Known weak spots:** vendor-limit and pricing figures are doc-sourced estimates, not independently quoted or experience-sourced; I don't have production streaming-ops scars behind this design — which is exactly why the riskiest claim is benchmarked instead of asserted, and why the design holds novel systems to one.
+**Tools:** Claude Code and OpenAI Codex. **AI helped with:** analyzing the brief, laying out candidate architectures with trade-offs, drafting the benchmark code, and editing this document. **I decided:** which candidate stack to commit to (Kinesis + ClickHouse over MSK/Flink and over Firehose/Snowflake), and the artifact scope — benchmark the one claim vendor docs can't answer, cite AWS docs for the rest instead of fake-simulating a queue locally, and report laptop numbers as a floor rather than a capacity plan. **Checked/changed:** the benchmark ran on my machine through the pinned runner with results committed as-is; an adversarial review pass over the draft specifically hunted for AI overclaims and caught one — an earlier version overstated Kinesis on-demand capacity by ignoring the 4 MB/s starting throughput and the ~2x-per-15-minute ramp rule; the corrected claim is in §1 and §7. **Known weak spots:** my hands-on background is stronger in AI automation than production streaming operations, so I benchmarked the riskiest ClickHouse claim instead of asserting it and kept the design to one novel data system.
 
 ## 7. What Breaks It
 
@@ -104,7 +104,7 @@ Scope honesty: a laptop single node validates the *engine and insert pattern*, n
 - **Hot-tenant skew** — one tenant's launch shouldn't starve the rest. *Detect:* per-tenant ingest metrics. *Respond:* shard/partition keys include hashed visitor ID, per-tenant query quotas.
 - **Custom-event schema drift** (SDK sends anything). Malformed events are quarantined to S3 with a dead-letter alarm — never dropped, never pipeline-blocking.
 - **Consumer lag during ClickHouse maintenance.** 7-day retention [Assumed config] makes this an SLA event, not a loss event; iterator-age alarm is the pager trigger.
-- **GDPR deletion at scale** — ClickHouse deletes are expensive mutations. Batched nightly `ALTER DELETE` per tenant + S3 lifecycle rules, tracked against the applicable legal response window, not done synchronously.
+- **GDPR deletion at scale** — ClickHouse deletes and archived Parquet rewrites are expensive. Keep a deletion-tombstone table as source of truth; apply batched ClickHouse deletes for hot data, rewrite affected S3 tenant/date partitions asynchronously, and make exports filter tombstones until compaction completes.
 - **The benchmark itself misleads** if read as capacity planning: no replication, no concurrent query load, local NVMe. It bounds the mechanism, not the cluster size.
 
 ## 8. What Stays Human

@@ -88,33 +88,36 @@ def make_event_factory(n_tenants):
 
 
 def writer_loop(q_in, stats, stop_evt):
-    batch = []
-    oldest_added_at = None
-    while True:
-        try:
-            batch.append(q_in.get(timeout=TICK_S))
-            if oldest_added_at is None:
-                oldest_added_at = time.time()
-            while True:  # drain whatever else is queued without blocking
-                try:
-                    batch.append(q_in.get_nowait())
-                except queue.Empty:
-                    break
-        except queue.Empty:
-            pass
+    try:
+        batch = []
+        oldest_added_at = None
+        while True:
+            try:
+                batch.append(q_in.get(timeout=TICK_S))
+                if oldest_added_at is None:
+                    oldest_added_at = time.time()
+                while True:  # drain whatever else is queued without blocking
+                    try:
+                        batch.append(q_in.get_nowait())
+                    except queue.Empty:
+                        break
+            except queue.Empty:
+                pass
 
-        drained = stop_evt.is_set() and q_in.empty()
-        if batch and (drained or should_flush(len(batch), time.time() - oldest_added_at)):
-            t0 = time.time()
-            ch_insert(batch)
-            stats["flushes"] += 1
-            stats["rows_written"] += len(batch)
-            stats["batch_sizes"].append(len(batch))
-            stats["flush_secs"].append(time.time() - t0)
-            batch = []
-            oldest_added_at = None
-        if drained and not batch:
-            return
+            drained = stop_evt.is_set() and q_in.empty()
+            if batch and (drained or should_flush(len(batch), time.time() - oldest_added_at)):
+                t0 = time.time()
+                ch_insert(batch)
+                stats["flushes"] += 1
+                stats["rows_written"] += len(batch)
+                stats["batch_sizes"].append(len(batch))
+                stats["flush_secs"].append(time.time() - t0)
+                batch = []
+                oldest_added_at = None
+            if drained and not batch:
+                return
+    except Exception as exc:  # thread exceptions do not fail the process by default
+        stats["error"] = repr(exc)
 
 
 def main():
@@ -126,7 +129,7 @@ def main():
 
     make_batch = make_event_factory(args.tenants)
     q_out = queue.Queue()
-    stats = {"flushes": 0, "rows_written": 0, "batch_sizes": [], "flush_secs": []}
+    stats = {"flushes": 0, "rows_written": 0, "batch_sizes": [], "flush_secs": [], "error": None}
     stop_evt = threading.Event()
     writer = threading.Thread(target=writer_loop, args=(q_out, stats, stop_evt))
     writer.start()
@@ -149,6 +152,11 @@ def main():
     gen_elapsed = time.time() - started
     stop_evt.set()
     writer.join()
+
+    if stats["error"]:
+        raise SystemExit(f"writer failed: {stats['error']}")
+    if stats["rows_written"] != sent:
+        raise SystemExit(f"row-count mismatch: generated {sent}, wrote {stats['rows_written']}")
 
     print(f"\nGenerated {sent:,} events in {gen_elapsed:.1f}s "
           f"(achieved generation rate: {sent/gen_elapsed:,.0f}/sec)")

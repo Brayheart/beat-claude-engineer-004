@@ -40,9 +40,9 @@ cd benchmark
 ```
 
 The runner uses its own pinned local ClickHouse binary, starts a throwaway local
-server, applies the schema, drives the load, prints results, and shuts the server
-down again on exit. If port 8123 is already occupied, it exits instead of silently
-running against the wrong server.
+server in a temporary data directory, applies the schema, drives the load, prints
+results, and shuts the server down again on exit. If port 8123 is already
+occupied, it exits instead of silently running against the wrong server.
 
 Results land in `benchmark/results/results.md`.
 
