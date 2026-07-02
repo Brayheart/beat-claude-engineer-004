@@ -35,12 +35,14 @@ Requires: macOS or Linux, Python 3.9+ (stdlib only, no pip installs), ~1GB disk.
 
 ```bash
 cd benchmark
-./run.sh                      # first run downloads ClickHouse v25.8-lts (pinned version, checksum-verified)
+./run.sh                      # downloads ClickHouse v25.8-lts, then verifies version + SHA-256
 ./run.sh --rate 11600         # optional: push to 20x average
 ```
 
-The runner starts a throwaway local server, applies the schema, drives the load,
-prints results, and shuts the server down again on exit.
+The runner uses its own pinned local ClickHouse binary, starts a throwaway local
+server, applies the schema, drives the load, prints results, and shuts the server
+down again on exit. If port 8123 is already occupied, it exits instead of silently
+running against the wrong server.
 
 Results land in `benchmark/results/results.md`.
 
@@ -48,6 +50,8 @@ Results land in `benchmark/results/results.md`.
 
 - Local single node ≠ production cluster; numbers validate the *engine and the
   ingest pattern*, not the exact production deployment.
+- The benchmark schema is intentionally narrower than the production schema: it
+  tests ingest/query latency, not identity stitching or duplicate-removal logic.
 - The queue leg (Kinesis) is not simulated locally — a localhost Kafka would not
   be a faithful proxy anyway. Its capacity and durability numbers come from AWS
   published quotas and SLAs.

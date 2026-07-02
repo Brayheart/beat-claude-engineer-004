@@ -1,11 +1,11 @@
 flowchart LR
-  A["Phase 0\nlegacy owns production"] --> B["Phase 1\nnew collector mirrors to legacy + Kinesis"]
+  A["Legacy\nowns production"] --> B["Mirror\nnew collector forwards to legacy + Kinesis"]
   B --> C{"Reconciliation gate\ncounts, canaries, lag"}
-  C -- pass --> D["Phase 2\nweighted traffic shift\n1% -> 10% -> 50% -> 100%"]
+  C -- pass --> D["Weighted shift\ngraduated traffic rollout"]
   C -- fail --> R["Rollback\nsend all traffic to legacy"]
-  D --> E{"Gate at each step\n>=48h clean window"}
-  E -- pass --> F["Phase 3\nClickHouse dashboards MVP"]
+  D --> E{"Gate each step\nclean hold window"}
+  E -- pass --> F["Cutover\nClickHouse dashboards MVP"]
   E -- fail --> R
-  F --> G["Phase 4\nbackfill history\nPostgres -> S3 -> ClickHouse"]
-  G --> H["Phase 5\nretire legacy forwarding\nafter clean operating window"]
+  F --> G["Backfill\nPostgres -> S3 -> ClickHouse"]
+  G --> H["Retire legacy forwarding\nafter clean operating window"]
   R --> A

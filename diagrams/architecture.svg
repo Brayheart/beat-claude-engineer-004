@@ -40,12 +40,12 @@
   <text class="label" x="620" y="190">Kinesis</text>
   <text class="small" x="620" y="220">Data Streams</text>
   <text class="small" x="620" y="246">durable buffer</text>
-  <text class="small" x="620" y="272">7-day retention</text>
+  <text class="small" x="620" y="272">durable retention</text>
 
   <rect class="box" x="900" y="130" width="250" height="170"/>
   <text class="label" x="928" y="170">Ingest Consumers</text>
   <text class="small" x="928" y="200">ECS + KCL checkpoints</text>
-  <text class="small" x="928" y="226">flush >=6K rows or 1s</text>
+  <text class="small" x="928" y="226">policy-batched writes</text>
   <text class="small" x="928" y="252">checkpoint after insert</text>
 
   <rect class="store" x="1215" y="130" width="140" height="170"/>
@@ -99,5 +99,5 @@
   <text class="tiny" x="360" y="360">mirror during migration</text>
   <text class="tiny" x="716" y="355">raw archive</text>
   <text class="tiny" x="1055" y="570">matched trigger events</text>
-  <text class="tiny" x="1195" y="112">dictionary refresh</text>
+  <text class="tiny" x="1195" y="112">identity refresh</text>
 </svg>

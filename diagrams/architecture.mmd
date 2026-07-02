@@ -1,9 +1,9 @@
 flowchart LR
   SDK["JS SDK\nunchanged endpoint + wire format"] --> COL["Collection API\nALB + ECS Fargate\nACK after durable write"]
-  COL --> KDS[("Kinesis Data Streams\n7-day retention")]
+  COL --> KDS[("Kinesis Data Streams\ndurable retention")]
   COL -. "mirror during migration" .-> LEGACY["Legacy pipeline\nunchanged"]
 
-  KDS --> CONS["Ingest consumers\nECS + KCL checkpoints\nbatch >=6K rows or 1s"]
+  KDS --> CONS["Ingest consumers\nECS + KCL checkpoints\npolicy-batched writes"]
   KDS --> FH["Firehose"]
   FH --> S3[("S3 raw archive\nParquet by tenant/date")]
 
